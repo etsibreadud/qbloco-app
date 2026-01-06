@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Calendar, Clock, MapPin, MessageCircle, Star, Heart, Navigation, Play, Square, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, MessageCircle, Star, Heart, Navigation, Play, Square, AlertTriangle, BookOpen } from "lucide-react";
 import type { Block } from "./BlockCard";
 import { TagChip } from "./TagChip";
 import { RatingBar, RatingDisplay } from "./RatingBar";
@@ -128,6 +128,16 @@ export function BlockDetail({
           </div>
         ) : null}
 
+        {block.audiences && block.audiences.length ? (
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-700">
+            {block.audiences.map((a) => (
+              <Badge key={a} variant="outline" className="rounded-full border-purple-100">
+                Público: {a}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-6 grid grid-cols-2 gap-4">
           <a
             href={mapsHref}
@@ -204,6 +214,16 @@ export function BlockDetail({
             Ver rota
           </Button>
         </div>
+
+        {(block.source || block.observations) && (
+          <div className="mt-5 rounded-2xl border border-purple-100 bg-purple-50/60 p-4 text-sm text-gray-800 flex items-start gap-2">
+            <BookOpen className="w-4 h-4 text-purple-700 mt-0.5" />
+            <div className="space-y-1">
+              {block.source ? <div><span className="font-bold">Fonte:</span> {block.source}</div> : null}
+              {block.observations ? <div><span className="font-bold">Obs.:</span> {block.observations}</div> : null}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-3xl border border-purple-100 shadow-lg p-6">

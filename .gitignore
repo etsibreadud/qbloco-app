@@ -1,0 +1,13 @@
+node_modules
+QBloco-vBeta/node_modules
+.env
+.env.local
+.vscode
+.idea
+dist
+.vercel
+.DS_Store
+*.log
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock

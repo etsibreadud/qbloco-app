@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Calendar, Sparkles } from "lucide-react";
 import type { Block } from "../components/BlockCard";
 import { BlockCard } from "../components/BlockCard";
-import { FilterPanel, Filters } from "../components/FilterPanel";
+import { FilterPanel, type Filters } from "../components/FilterPanel";
 import { Skeleton } from "../components/ui/skeleton";
 
 function getTimeCategory(time: string) {
@@ -40,20 +41,21 @@ export function SchedulePage({
     return blocks.filter((block) => {
       if (filters.favoritesOnly && !favoritesSet.has(block.id)) return false;
 
-      if (filters.date && block.date !== filters.date) return false;
+      if (filters.dateStart && block.date < filters.dateStart) return false;
+      if (filters.dateEnd && block.date > filters.dateEnd) return false;
 
       if (filters.search) {
         const s = filters.search.toLowerCase();
-        const hay = `${block.name} ${block.neighborhood} ${block.metro} ${(block.tags || []).join(" ")}`.toLowerCase();
+        const hay = `${block.name} ${block.neighborhood} ${block.metro} ${(block.tags || []).join(" ")} ${(block.audiences || []).join(" ")}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
 
-      if (filters.timeOfDay && getTimeCategory(block.time) !== filters.timeOfDay) return false;
+      if (filters.timeOfDay.length && !filters.timeOfDay.includes(getTimeCategory(block.time))) return false;
 
-      if (filters.targetAudience) {
-        const t = filters.targetAudience.toLowerCase();
-        const tags = (block.tags || []).map((x) => x.toLowerCase());
-        if (!tags.some((x) => x.includes(t))) return false;
+      if (filters.audiences.length) {
+        const tags = (block.audiences || []).map((x) => x.toLowerCase());
+        const hasAll = filters.audiences.every((f) => tags.includes(f.toLowerCase()));
+        if (!hasAll) return false;
       }
 
       if (filters.neighborhood) {
@@ -61,11 +63,28 @@ export function SchedulePage({
         if (!block.neighborhood.toLowerCase().includes(n)) return false;
       }
 
+      if (filters.metro) {
+        const m = filters.metro.toLowerCase();
+        if (!block.metro.toLowerCase().includes(m)) return false;
+      }
+
       if (filters.crowd && block.expectedCrowd !== filters.crowd) return false;
 
       return true;
     });
   }, [blocks, filters, favoritesSet]);
+
+  const sortedBlocks = useMemo(() => {
+    const arr = [...filteredBlocks];
+    if (filters.sortBy === "rating") {
+      return arr.sort((a, b) => b.rating - a.rating);
+    }
+    if (filters.sortBy === "crowd") {
+      const order = { "low": 0, "medium": 1, "high": 2, "very-high": 3 } as const;
+      return arr.sort((a, b) => order[a.expectedCrowd] - order[b.expectedCrowd]);
+    }
+    return arr.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  }, [filteredBlocks, filters.sortBy]);
 
   return (
     <div className="space-y-5 pb-24">
@@ -107,7 +126,7 @@ export function SchedulePage({
           <Skeleton className="h-28 rounded-3xl" />
           <Skeleton className="h-28 rounded-3xl" />
         </div>
-      ) : filteredBlocks.length === 0 ? (
+      ) : sortedBlocks.length === 0 ? (
         <div className="bg-white rounded-3xl shadow-lg border border-purple-100 p-7 text-center">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center">
             <Sparkles className="w-7 h-7 text-purple-700" />
@@ -119,7 +138,7 @@ export function SchedulePage({
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredBlocks.map((block) => (
+          {sortedBlocks.map((block) => (
             <BlockCard
               key={block.id}
               block={block}

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SlidersHorizontal, X, Heart } from "lucide-react";
 import { Switch } from "./ui/switch";
+import { Checkbox } from "./ui/checkbox";
 
 interface FilterPanelProps {
   onFilterChange: (filters: Filters) => void;
@@ -8,55 +9,71 @@ interface FilterPanelProps {
 }
 
 export interface Filters {
-  date: string;
   search: string;
-  timeOfDay: string;
-  targetAudience: string;
+  dateStart: string;
+  dateEnd: string;
+  timeOfDay: string[];
+  audiences: string[];
   neighborhood: string;
-  crowd: string;
+  metro: string;
+  crowd: "" | "low" | "medium" | "high" | "very-high";
   favoritesOnly: boolean;
+  sortBy: "date" | "rating" | "crowd";
 }
 
 const timeOptions = [
-  { value: "", label: "Todos os horários" },
   { value: "morning", label: "Manhã (até 12h)" },
   { value: "afternoon", label: "Tarde (12h–18h)" },
   { value: "evening", label: "Noite (após 18h)" },
 ];
 
-const audienceOptions = [
-  { value: "", label: "Todos os públicos" },
-  { value: "jovem", label: "Jovem" },
-  { value: "lgbt", label: "LGBT" },
-  { value: "familia", label: "Família" },
-  { value: "tradicional", label: "Tradicional" },
-];
-
-const crowdOptions = [
-  { value: "", label: "Qualquer lotação" },
-  { value: "low", label: "Tranquilo" },
-  { value: "medium", label: "Moderado" },
-  { value: "high", label: "Lotado" },
-  { value: "very-high", label: "Mega lotado" },
-];
+const audienceOptions = ["jovem", "lgbt", "familia", "tradicional", "turista"];
 
 export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleFilterChange = (key: keyof Filters, value: string | boolean) => {
+  const handleFilterChange = (key: keyof Filters, value: string | boolean | string[]) => {
     onFilterChange({ ...currentFilters, [key]: value } as Filters);
   };
 
   const clearFilters = () => {
     onFilterChange({
-      date: "",
       search: "",
-      timeOfDay: "",
-      targetAudience: "",
+      dateStart: "",
+      dateEnd: "",
+      timeOfDay: [],
+      audiences: [],
       neighborhood: "",
+      metro: "",
       crowd: "",
       favoritesOnly: false,
+      sortBy: "date",
     });
+  };
+
+  const crowdOptions = useMemo(
+    () => [
+      { value: "", label: "Qualquer lotação" },
+      { value: "low", label: "Tranquilo" },
+      { value: "medium", label: "Moderado" },
+      { value: "high", label: "Lotado" },
+      { value: "very-high", label: "Mega lotado" },
+    ],
+    [],
+  );
+
+  const toggleTime = (value: string) => {
+    const set = new Set(currentFilters.timeOfDay);
+    if (set.has(value)) set.delete(value);
+    else set.add(value);
+    handleFilterChange("timeOfDay", Array.from(set));
+  };
+
+  const toggleAudience = (value: string) => {
+    const set = new Set(currentFilters.audiences);
+    if (set.has(value)) set.delete(value);
+    else set.add(value);
+    handleFilterChange("audiences", Array.from(set));
   };
 
   return (
@@ -83,12 +100,15 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
           />
         </div>
 
-        {(currentFilters.date ||
-          currentFilters.timeOfDay ||
-          currentFilters.targetAudience ||
+        {(currentFilters.dateStart ||
+          currentFilters.dateEnd ||
+          currentFilters.timeOfDay.length ||
+          currentFilters.audiences.length ||
           currentFilters.neighborhood ||
+          currentFilters.metro ||
           currentFilters.crowd ||
-          currentFilters.favoritesOnly) && (
+          currentFilters.favoritesOnly ||
+          currentFilters.sortBy !== "date") && (
           <button
             type="button"
             onClick={clearFilters}
@@ -114,70 +134,103 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">Data</label>
-              <input
-                type="date"
-                value={currentFilters.date}
-                onChange={(e) => handleFilterChange("date", e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Data inicial</label>
+                <input
+                  type="date"
+                  value={currentFilters.dateStart}
+                  onChange={(e) => handleFilterChange("dateStart", e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Data final</label>
+                <input
+                  type="date"
+                  value={currentFilters.dateEnd}
+                  onChange={(e) => handleFilterChange("dateEnd", e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-bold text-gray-900 mb-2">Horário</label>
-              <select
-                value={currentFilters.timeOfDay}
-                onChange={(e) => handleFilterChange("timeOfDay", e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
-              >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {timeOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
+                  <label key={o.value} className="flex items-center gap-2 rounded-2xl border border-purple-100 bg-gray-50 px-3 py-2">
+                    <Checkbox checked={currentFilters.timeOfDay.includes(o.value)} onCheckedChange={() => toggleTime(o.value)} />
+                    <span className="text-sm text-gray-800">{o.label}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">Público</label>
-              <select
-                value={currentFilters.targetAudience}
-                onChange={(e) => handleFilterChange("targetAudience", e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
-              >
-                {audienceOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
+              <label className="block text-sm font-bold text-gray-900 mb-2">Público-alvo (multi)</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {audienceOptions.map((a) => (
+                  <label key={a} className="flex items-center gap-2 rounded-2xl border border-purple-100 bg-gray-50 px-3 py-2">
+                    <Checkbox checked={currentFilters.audiences.includes(a)} onCheckedChange={() => toggleAudience(a)} />
+                    <span className="text-sm text-gray-800 capitalize">{a}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">Bairro</label>
-              <input
-                type="text"
-                value={currentFilters.neighborhood}
-                onChange={(e) => handleFilterChange("neighborhood", e.target.value)}
-                placeholder="Ex.: Centro, Ipanema, Lapa…"
-                className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Bairro</label>
+                <input
+                  type="text"
+                  value={currentFilters.neighborhood}
+                  onChange={(e) => handleFilterChange("neighborhood", e.target.value)}
+                  placeholder="Ex.: Centro, Ipanema, Lapa…"
+                  className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Metrô</label>
+                <input
+                  type="text"
+                  value={currentFilters.metro}
+                  onChange={(e) => handleFilterChange("metro", e.target.value)}
+                  placeholder="Ex.: Cinelândia, Carioca, Siqueira Campos…"
+                  className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">Lotação</label>
-              <select
-                value={currentFilters.crowd}
-                onChange={(e) => handleFilterChange("crowd", e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
-              >
-                {crowdOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Lotação</label>
+                <select
+                  value={currentFilters.crowd}
+                  onChange={(e) => handleFilterChange("crowd", e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                >
+                  {crowdOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Ordenação</label>
+                <select
+                  value={currentFilters.sortBy}
+                  onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-purple-100 rounded-2xl focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none"
+                >
+                  <option value="date">Data / horário</option>
+                  <option value="rating">Melhor avaliação</option>
+                  <option value="crowd">Menor lotação</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
