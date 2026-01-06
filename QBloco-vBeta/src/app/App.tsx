@@ -12,7 +12,8 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { toast } from "sonner";
 import { useGeoTracker } from "./hooks/useGeoTracker";
 import { formatDistance } from "./lib/distance";
-import { supabase } from "./lib/supabaseClient";
+import { supabase, hasSupabaseConfig } from "./lib/supabaseClient";
+import { sampleBlocks } from "./data/sampleBlocks";
 
 type ActiveVisit = {
   sessionId: string;
@@ -51,8 +52,12 @@ type DbBlock = {
   neighborhood: string;
   metro: string;
   audience: string[] | null;
-  expected_crowd: number | null;
+  expected_crowd: "low" | "medium" | "high" | "very-high" | null;
   rating: number | null;
+  review_count?: number | null;
+  observations?: string | null;
+  source?: string | null;
+  tags?: string[] | null;
 };
 
 type DbSession = {
@@ -71,6 +76,15 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const userEmail = session?.user?.email ?? null;
   const userId = session?.user?.id ?? null;
+  const adminEmails = useMemo(
+    () =>
+      (import.meta.env.VITE_ADMIN_EMAILS as string | undefined)
+        ?.split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean) || [],
+    [],
+  );
+  const isAdmin = !!(userEmail && adminEmails.includes(userEmail.toLowerCase()));
 
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [isBlocksLoading, setIsBlocksLoading] = useState(true);
@@ -79,10 +93,16 @@ export default function App() {
   const [stats, setStats] = useState<UserStats>(emptyStats);
 
   const [filters, setFilters] = useState<Filters>({
-    query: "",
-    date: "all",
-    audience: "all",
+    search: "",
+    dateStart: "",
+    dateEnd: "",
+    timeOfDay: [],
+    audiences: [],
+    neighborhood: "",
+    metro: "",
+    crowd: "",
     favoritesOnly: false,
+    sortBy: "date",
   });
 
   const [activeVisit, setActiveVisit] = useState<ActiveVisit | null>(null);
@@ -92,6 +112,13 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
+
+    if (!hasSupabaseConfig) {
+      setSession(null);
+      return () => {
+        mounted = false;
+      };
+    }
 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
@@ -113,6 +140,10 @@ export default function App() {
   }, []);
 
   const requestMagicLink = async (email: string) => {
+    if (!hasSupabaseConfig) {
+      toast.error("Defina as chaves do Supabase para enviar o link de acesso.");
+      return;
+    }
     const redirectTo = window.location.origin;
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -130,6 +161,14 @@ export default function App() {
   const logout = async () => {
     geo.stop();
     setActiveVisit(null);
+
+    if (!hasSupabaseConfig) {
+      setSession(null);
+      setFavoriteIds([]);
+      setStats(emptyStats);
+      toast.message("Sessão local encerrada.");
+      return;
+    }
 
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -149,22 +188,32 @@ export default function App() {
     time: b.time,
     neighborhood: b.neighborhood,
     metro: b.metro,
-    audience: b.audience ?? [],
-    expectedCrowd: b.expected_crowd ?? 0,
+    audiences: b.audience ?? [],
+    expectedCrowd: b.expected_crowd ?? "medium",
     rating: typeof b.rating === "number" ? b.rating : 0,
+    reviewCount: typeof b.review_count === "number" ? b.review_count : 0,
+    observations: b.observations ?? undefined,
+    source: b.source ?? undefined,
+    tags: b.tags ?? [],
   });
 
   const loadBlocks = async () => {
     setIsBlocksLoading(true);
+    if (!hasSupabaseConfig) {
+      setBlocks(sampleBlocks);
+      setIsBlocksLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("blocos")
-      .select("id,name,date,time,neighborhood,metro,audience,expected_crowd,rating")
+      .select("id,name,date,time,neighborhood,metro,audience,expected_crowd,rating,review_count,observations,source,tags")
       .order("date", { ascending: true })
       .order("time", { ascending: true });
 
     if (error) {
       toast.error("Falha ao carregar blocos. Verifique a tabela 'blocos' no Supabase.");
-      setBlocks([]);
+      setBlocks(sampleBlocks);
       setIsBlocksLoading(false);
       return;
     }
@@ -174,6 +223,10 @@ export default function App() {
   };
 
   const loadFavorites = async (uid: string) => {
+    if (!hasSupabaseConfig) {
+      setFavoriteIds([]);
+      return;
+    }
     const { data, error } = await supabase.from("favorites").select("bloco_id").eq("user_id", uid);
 
     if (error) {
@@ -186,6 +239,10 @@ export default function App() {
   };
 
   const loadStats = async (uid: string) => {
+    if (!hasSupabaseConfig) {
+      setStats(emptyStats);
+      return;
+    }
     const { data, error } = await supabase
       .from("checkin_sessions")
       .select("id, bloco_id, started_at, ended_at, distance_m, blocos:bloco_id (name,date)")
@@ -245,6 +302,11 @@ export default function App() {
       return;
     }
 
+    if (!hasSupabaseConfig) {
+      toast.error("Configure o Supabase para salvar favoritos na nuvem.");
+      return;
+    }
+
     const isFav = favoriteIds.includes(blockId);
 
     if (isFav) {
@@ -275,6 +337,11 @@ export default function App() {
   const startCheckIn = async (block: Block) => {
     if (!userId) {
       requestLogin();
+      return;
+    }
+
+    if (!hasSupabaseConfig) {
+      toast.error("Configure o Supabase para registrar check-ins.");
       return;
     }
 
@@ -323,6 +390,11 @@ export default function App() {
       return;
     }
     if (!activeVisit) return;
+
+    if (!hasSupabaseConfig) {
+      toast.error("Configure o Supabase para registrar check-outs.");
+      return;
+    }
 
     geo.stop();
 
@@ -382,9 +454,12 @@ export default function App() {
         favorites={favorites}
         activeVisit={activeVisit ? { blockName: activeVisit.blockName, blockDate: activeVisit.blockDate, checkInAt: activeVisit.checkInAt } : null}
         activeDistance={liveDistance}
+        isAdmin={isAdmin}
+        adminBlocks={blocks}
+        onRefreshBlocks={() => void loadBlocks()}
       />
     );
-  }, [nav, userEmail, blocks, filters, favoriteIds, stats, favorites, activeVisit, liveDistance]);
+  }, [nav, userEmail, blocks, filters, favoriteIds, stats, favorites, activeVisit, liveDistance, isAdmin]);
 
   return (
     <>

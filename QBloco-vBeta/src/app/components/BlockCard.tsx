@@ -14,6 +14,8 @@ export interface Block {
   tags?: string[];
   description?: string;
   observations?: string;
+  audiences?: string[];
+  source?: string;
 }
 
 interface BlockCardProps {

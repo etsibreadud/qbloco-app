@@ -1,0 +1,4 @@
+id,name,date,time,neighborhood,metro,audiences,expected_crowd,rating,review_count,source,observations
+amigos-da-praca,Amigos da Praça,2026-02-14,09:00,Laranjeiras,Largo do Machado,"familia;tradicional",medium,4.5,18,Agenda Prefeitura,Chegar cedo para pegar sombra na praça.
+brisa-do-mar,Brisa do Mar,2026-02-15,15:30,Copacabana,Cardeal Arcoverde,"lgbt;jovem",high,4.8,42,Bloco oficial,Ponto de encontro na esquina da Av. Atlântica.
+batucada-noturna,Batucada Noturna,2026-02-16,20:00,Centro,Carioca,"jovem;tradicional",very-high,4.2,67,Liga dos Blocos,Checar esquema de bloqueios de trânsito.

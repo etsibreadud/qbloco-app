@@ -5,6 +5,7 @@ import type { Block } from "../components/BlockCard";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
+import { AdminPanel } from "../components/AdminPanel";
 
 export type VisitRecord = {
   id: string;
@@ -30,6 +31,9 @@ export function ProfilePage({
   favorites,
   activeVisit,
   activeDistance,
+  isAdmin,
+  adminBlocks,
+  onRefreshBlocks,
 }: {
   userEmail: string | null;
   onRequestMagicLink: (email: string) => Promise<void>;
@@ -38,6 +42,9 @@ export function ProfilePage({
   favorites: Block[];
   activeVisit: { blockName: string; blockDate: string; checkInAt: string } | null;
   activeDistance: number;
+  isAdmin: boolean;
+  adminBlocks: Block[];
+  onRefreshBlocks: () => void;
 }) {
   if (!userEmail) {
     return (
@@ -201,6 +208,22 @@ export function ProfilePage({
           )}
         </div>
       </div>
+
+      {isAdmin ? (
+        <div className="bg-white rounded-3xl shadow-lg border border-purple-100 p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-base font-extrabold text-gray-900">Admin</div>
+              <div className="text-sm text-gray-700">Área restrita para criar, editar e excluir blocos.</div>
+            </div>
+            <Button variant="outline" onClick={onRefreshBlocks} className="rounded-2xl">
+              Recarregar lista
+            </Button>
+          </div>
+
+          <AdminPanel blocks={adminBlocks} onRefresh={onRefreshBlocks} />
+        </div>
+      ) : null}
     </div>
   );
 }
